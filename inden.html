@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Okuma ve Doğrulama</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    #popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 20px;
+      border-radius: 5px;
+      color: white;
+      font-weight: bold;
+      display: none;
+    }
+    #popup.success { background-color: green; }
+    #popup.error { background-color: red; }
+  </style>
+</head>
+<body>
+
+<h1>QR Kod Okuyucu</h1>
+<div id="reader" style="width:300px;"></div>
+
+<div id="popup"></div>
+
+<script>
+  const expectedUser = "Yalçınkaya, Çınar";
+  const expectedPassword = "32125";
+  const expectedId = "WGM.CL001";
+
+  function showPopup(message, isSuccess) {
+    const popup = document.getElementById("popup");
+    popup.textContent = message;
+    popup.className = isSuccess ? "success" : "error";
+    popup.style.display = "block";
+    setTimeout(() => { popup.style.display = "none"; }, 3000);
+  }
+
+  function parseData(text) {
+    const parts = text.split("-");
+    let user = "", pw = "", id = "";
+
+    parts.forEach(part => {
+      if (part.includes("usr=")) {
+        user = part.split('usr="')[1]?.split('"')[0];
+      } else if (part.includes("usrPw=")) {
+        pw = part.split('usrPw="')[1]?.split('"')[0];
+      } else if (part.includes("usridn=")) {
+        id = part.split('usridn="')[1]?.split('"')[0];
+      }
+    });
+
+    return { user, pw, id };
+  }
+
+  function onScanSuccess(decodedText, decodedResult) {
+    console.log(`QR kod okundu: ${decodedText}`);
+    const data = parseData(decodedText);
+
+    if (data.user === expectedUser && data.pw === expectedPassword && data.id === expectedId) {
+      showPopup("Doğrulama Başarılı!", true);
+    } else {
+      showPopup("Doğrulama Başarısız!", false);
+    }
+  }
+
+  const html5QrCode = new Html5Qrcode("reader");
+  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+  html5QrCode.start(
+    { facingMode: "environment" }, // arka kamera
+    config,
+    onScanSuccess
+  ).catch(err => {
+    console.error("Başlatılamadı: ", err);
+  });
+</script>
+
+</body>
+</html>
