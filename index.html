@@ -2,35 +2,71 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>QR Okuma ve Doğrulama</title>
+  <title>QR Kod Giriş Sistemi</title>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 30px; }
     #popup {
       position: fixed;
       top: 20px;
       left: 50%;
       transform: translateX(-50%);
-      padding: 20px;
+      padding: 15px;
       border-radius: 5px;
-      color: white;
       font-weight: bold;
+      color: white;
       display: none;
+      z-index: 10;
     }
     #popup.success { background-color: green; }
     #popup.error { background-color: red; }
+    #reader { margin-top: 20px; }
+    #areaInfo { margin-top: 20px; font-size: 18px; }
   </style>
 </head>
 <body>
 
-<h1>QR Kod Okuyucu</h1>
+<h1>QR Kod Giriş Sistemi</h1>
+
+<div id="areaSelection">
+  <label>Alan kodu giriniz: </label>
+  <input type="text" id="areaCodeInput" placeholder="Örn: A1">
+  <button onclick="loadArea()">Onayla</button>
+</div>
+
+<div id="areaInfo"></div>
+
 <div id="reader" style="width:300px;"></div>
 
 <div id="popup"></div>
 
 <script>
-  const expectedUser = "Yalçınkaya, Çınar";
-  const expectedPassword = "32125";
-  const expectedId = "WGM.CL001";
+  // Kullanıcı verileri doğrudan buraya gömülü
+  const userData = [
+    {
+      "userid": "WGM.CL001",
+      "name": "Yalçınkaya, Çınar",
+      "clearance": 5,
+      "qrData": "wgmQr.UserIdentitiy.usr=\"Yalçınkaya, Çınar\"-usridn=\"WGM.CL001\""
+    },
+    {
+      "userid": "WGM.CL002",
+      "name": "Tener, Nisa",
+      "clearance": 3,
+      "qrData": "wgmQr.UserIdentitiy.usr=\"Tener, Nisa\"-usridn=\"WGM.CL002\""
+    }
+    
+  ];
+
+  // Alan verileri de doğrudan buraya gömülü
+  const areaData = [
+    { "areaCode": "A1", "minimumClearance": 2 },
+    { "areaCode": "A2", "minimumClearance": 4 },
+    { "areaCode": "A3", "minimumClearance": 1 }
+  ];
+
+  let selectedArea = null;
+  let minClearance = null;
 
   function showPopup(message, isSuccess) {
     const popup = document.getElementById("popup");
@@ -40,44 +76,71 @@
     setTimeout(() => { popup.style.display = "none"; }, 3000);
   }
 
-  function parseData(text) {
+  function loadArea() {
+    const input = document.getElementById("areaCodeInput").value.trim();
+    if (!input) {
+      showPopup("Alan kodu boş olamaz!", false);
+      return;
+    }
+
+    const area = areaData.find(a => a.areaCode === input);
+    if (area) {
+      selectedArea = input;
+      minClearance = area.minimumClearance;
+      document.getElementById("areaInfo").innerHTML = 
+        `Alan Kodu: <strong>${selectedArea}</strong><br>Gerekli Minimum Clearance: <strong>${minClearance}</strong>`;
+      startScanner();
+    } else {
+      showPopup("Alan kodu bulunamadı!", false);
+    }
+  }
+
+  function startScanner() {
+    const html5QrCode = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      (decodedText, decodedResult) => {
+        console.log(`QR Okundu: ${decodedText}`);
+        processQR(decodedText);
+        html5QrCode.stop(); // Tek okumada dursun
+      }
+    ).catch(err => {
+      console.error("Kamera başlatılamadı:", err);
+    });
+  }
+
+  function parseQR(text) {
     const parts = text.split("-");
-    let user = "", pw = "", id = "";
+    let user = "", id = "";
 
     parts.forEach(part => {
       if (part.includes("usr=")) {
         user = part.split('usr="')[1]?.split('"')[0];
-      } else if (part.includes("usrPw=")) {
-        pw = part.split('usrPw="')[1]?.split('"')[0];
       } else if (part.includes("usridn=")) {
         id = part.split('usridn="')[1]?.split('"')[0];
       }
     });
 
-    return { user, pw, id };
+    return { user, id };
   }
 
-  function onScanSuccess(decodedText, decodedResult) {
-    console.log(`QR kod okundu: ${decodedText}`);
-    const data = parseData(decodedText);
+  function processQR(qrText) {
+    const parsed = parseQR(qrText);
+    const user = userData.find(u => u.userid === parsed.id && u.name === parsed.user);
 
-    if (data.user === expectedUser && data.pw === expectedPassword && data.id === expectedId) {
-      showPopup("Doğrulama Başarılı!", true);
+    if (user) {
+      if (user.clearance >= minClearance) {
+        showPopup(`Giriş Başarılı! Kullanıcı: ${user.name} | Clearance: ${user.clearance}`, true);
+      } else {
+        showPopup(`Yetersiz Yetki! Kullanıcı Clearance: ${user.clearance}`, false);
+      }
     } else {
-      showPopup("Doğrulama Başarısız!", false);
+      showPopup("Kullanıcı bulunamadı!", false);
     }
   }
-
-  const html5QrCode = new Html5Qrcode("reader");
-  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-  html5QrCode.start(
-    { facingMode: "environment" }, // arka kamera
-    config,
-    onScanSuccess
-  ).catch(err => {
-    console.error("Başlatılamadı: ", err);
-  });
 </script>
 
 </body>
