@@ -44,18 +44,17 @@
   // Kullanıcı verileri doğrudan buraya gömülü
   const userData = [
     {
-      "userid": "WGM.CL001",
+      "userid": "WGM.CL002",
       "name": "Yalçınkaya, Çınar",
       "clearance": 5,
-      "qrData": "wgmQr.UserIdentitiy.usr=\"Yalçınkaya, Çınar\"-usridn=\"WGM.CL001\""
+      "qrData": "Yalçınkaya, Çınar;WGM.CL001"
     },
     {
       "userid": "WGM.CL002",
       "name": "Tener, Nisa",
       "clearance": 3,
-      "qrData": "wgmQr.UserIdentitiy.usr=\"Tener, Nisa\"-usridn=\"WGM.CL002\""
+      "qrData": "Tener, Nisa;WGM.CL002"
     }
-    
   ];
 
   // Alan verileri de doğrudan buraya gömülü
@@ -113,16 +112,13 @@
   }
 
   function parseQR(text) {
-    const parts = text.split("-");
+    const parts = text.split(";");
     let user = "", id = "";
 
-    parts.forEach(part => {
-      if (part.includes("usr=")) {
-        user = part.split('usr="')[1]?.split('"')[0];
-      } else if (part.includes("usridn=")) {
-        id = part.split('usridn="')[1]?.split('"')[0];
-      }
-    });
+    if (parts.length === 2) {
+      user = parts[0];
+      id = parts[1];
+    }
 
     return { user, id };
   }
